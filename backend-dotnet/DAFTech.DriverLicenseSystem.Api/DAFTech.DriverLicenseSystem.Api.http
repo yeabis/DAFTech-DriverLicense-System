@@ -1,0 +1,6 @@
+@DAFTech.DriverLicenseSystem.Api_HostAddress = http://localhost:5270
+
+GET {{DAFTech.DriverLicenseSystem.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
