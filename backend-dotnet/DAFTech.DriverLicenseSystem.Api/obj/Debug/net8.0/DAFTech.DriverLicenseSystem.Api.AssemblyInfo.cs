@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DAFTech.DriverLicenseSystem.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c55bad35d8d728e1cf5e5f5d4a236f4c9c7d70d0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+36ea4b0a9bd7d29f7a0255a2adde0850351b84bb")]
 [assembly: System.Reflection.AssemblyProductAttribute("DAFTech.DriverLicenseSystem.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DAFTech.DriverLicenseSystem.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
