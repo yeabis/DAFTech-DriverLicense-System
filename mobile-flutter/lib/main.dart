@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'core/app_theme.dart';
+import 'screens/dashboard_screen.dart';
 
 void main() {
   runApp(const DAFTechApp());
@@ -12,18 +14,8 @@ class DAFTechApp extends StatelessWidget {
     return MaterialApp(
       title: 'DAFTech License System',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue.shade900),
-        useMaterial3: true,
-      ),
-      home: const Scaffold(
-        body: Center(
-          child: Text(
-            'let go'
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ),
-      ),
+      theme: AppTheme.darkTheme,
+      home: const DashboardScreen()
     );
   }
 }
