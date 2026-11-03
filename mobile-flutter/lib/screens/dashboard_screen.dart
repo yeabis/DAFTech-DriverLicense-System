@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
+import 'camera_registration_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -37,7 +38,14 @@ class DashboardScreen extends StatelessWidget {
                       title: 'Register New License',
                       subtitle: 'Scan and save ID data',
                       icon: Icons.camera_alt_outlined,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>  CameraRegistrationScreen(),
+                          ),
+                        );
+                      },
                     ),
                     _buildGlassCard(
                       context,
