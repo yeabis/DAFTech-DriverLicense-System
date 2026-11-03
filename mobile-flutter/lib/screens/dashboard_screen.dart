@@ -12,26 +12,24 @@ class DashboardScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 20),
+              const SizedBox(height: 40),
               Text(
                 'Welcome, Officer',
                 style: Theme.of(context).textTheme.titleLarge, 
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 20),
               Text(
-                'System Status: Active',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.accentTeal, 
-                ),
+                'User 1',
+                style: Theme.of(context).textTheme.titleLarge, 
               ),
               const SizedBox(height: 40),
               
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 1,
-                  childAspectRatio: 2.5, 
+                  childAspectRatio: 4.5, 
                   mainAxisSpacing: 16,
                   children: [
                     _buildGlassCard(
