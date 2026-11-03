@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import 'camera_registration_screen.dart';
+import 'verification_logs_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -42,7 +43,7 @@ class DashboardScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) =>  CameraRegistrationScreen(),
+                            builder: (context) => const CameraRegistrationScreen(),
                           ),
                         );
                       },
@@ -59,7 +60,14 @@ class DashboardScreen extends StatelessWidget {
                       title: 'View Scan Logs',
                       subtitle: 'History of recent checks',
                       icon: Icons.history,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const VerificationLogsScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
