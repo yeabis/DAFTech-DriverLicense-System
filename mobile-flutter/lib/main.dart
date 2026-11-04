@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/app_theme.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   runApp(const DAFTechApp());
@@ -15,7 +15,7 @@ class DAFTechApp extends StatelessWidget {
       title: 'DAFTech License System',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: const DashboardScreen()
+      home: const LoginScreen(), 
     );
   }
 }

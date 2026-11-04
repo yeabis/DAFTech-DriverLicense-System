@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import 'camera_registration_screen.dart';
 import 'verification_logs_screen.dart';
+import  'verification_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -16,7 +17,7 @@ class DashboardScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 40),
+              const SizedBox(height: 55),
               Text(
                 'Welcome, Officer',
                 style: Theme.of(context).textTheme.titleLarge, 
@@ -26,7 +27,7 @@ class DashboardScreen extends StatelessWidget {
                 'User 1',
                 style: Theme.of(context).textTheme.titleLarge, 
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 60),
               
               Expanded(
                 child: GridView.count(
@@ -53,7 +54,14 @@ class DashboardScreen extends StatelessWidget {
                       title: 'Verify License',
                       subtitle: 'Check against database',
                       icon: Icons.verified_user_outlined,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => VerificationScreen(),
+                          ),
+                        );
+                      },
                     ),
                     _buildGlassCard(
                       context,
