@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import 'camera_registration_screen.dart';
 import 'verification_logs_screen.dart';
-import  'verification_screen.dart';
+import 'verification_screen.dart';
+import 'login_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -17,7 +18,7 @@ class DashboardScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 55),
+              const SizedBox(height: 40),
               Text(
                 'Welcome, Officer',
                 style: Theme.of(context).textTheme.titleLarge, 
@@ -27,13 +28,9 @@ class DashboardScreen extends StatelessWidget {
                 'User 1',
                 style: Theme.of(context).textTheme.titleLarge, 
               ),
-              const SizedBox(height: 60),
-              
+              const SizedBox(height: 40),              
               Expanded(
-                child: GridView.count(
-                  crossAxisCount: 1,
-                  childAspectRatio: 4.5, 
-                  mainAxisSpacing: 16,
+                child: ListView(
                   children: [
                     _buildGlassCard(
                       context,
@@ -49,6 +46,7 @@ class DashboardScreen extends StatelessWidget {
                         );
                       },
                     ),
+                    const SizedBox(height: 16), 
                     _buildGlassCard(
                       context,
                       title: 'Verify License',
@@ -58,11 +56,12 @@ class DashboardScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => VerificationScreen(),
+                            builder: (context) => const VerificationScreen(),
                           ),
                         );
                       },
                     ),
+                    const SizedBox(height: 16),
                     _buildGlassCard(
                       context,
                       title: 'View Scan Logs',
@@ -84,7 +83,14 @@ class DashboardScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
+                    );
+                  },
                   child: const Text('LOGOUT'),
                 ),
               ),
@@ -123,6 +129,7 @@ class DashboardScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min, 
                     children: [
                       Text(
                         title,
