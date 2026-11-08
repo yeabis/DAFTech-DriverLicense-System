@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../core/app_theme.dart';
+import '../services/api_service.dart';
 import '../services/tesseract_ocr_service.dart';
 import '../utils/license_parser.dart';
 import '../widgets/custom_scanner_widget.dart';
@@ -33,6 +34,29 @@ class _CameraRegistrationScreenState extends State<CameraRegistrationScreen> {
   bool _useLiveScanner = true;
 
   @override
+  void initState() {
+    super.initState();
+    _testBackendConnection();
+  }
+
+  Future<void> _testBackendConnection() async {
+    bool isConnected = await ApiService.testConnection();
+    if (!mounted) return;
+    
+    if (isConnected) {
+      debugPrint("SUCCESS: Connected to .NET 8 Backend API!");
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Warning: Cannot reach backend server. Check IP/Wi-Fi.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _ocrService.dispose();
     _nameController.dispose();
@@ -46,6 +70,7 @@ class _CameraRegistrationScreenState extends State<CameraRegistrationScreen> {
     _isRegisteredController.dispose();
     super.dispose();
   }
+
   void _onBarcodeDetected(BarcodeCapture capture) {
     if (!_useLiveScanner || _capturedImage != null) return;
     final barcodes = capture.barcodes;
@@ -220,7 +245,6 @@ class _CameraRegistrationScreenState extends State<CameraRegistrationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Card Viewport (Live Scanner or Captured Front Image)
               Container(
                 height: 240,
                 decoration: BoxDecoration(
@@ -264,7 +288,6 @@ class _CameraRegistrationScreenState extends State<CameraRegistrationScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Scan | Rescan Button
               SizedBox(
                 height: 52,
                 child: ElevatedButton.icon(
@@ -335,24 +358,100 @@ class _CameraRegistrationScreenState extends State<CameraRegistrationScreen> {
                     backgroundColor: const Color(0xFF1A4C46),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  onPressed: () {
+                  onPressed: _isProcessing ? null : () async {
                     final name = _nameController.text.trim();
                     final id = _idController.text.trim();
-                    if (id.isEmpty) {
+                    final dob = _dobController.text.trim();
+                    final expiry = _expiryController.text.trim();
+                    final type = _licenseTypeController.text.trim();
+
+                    if (id.isEmpty || name.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please scan or enter a License ID Number')),
+                        const SnackBar(content: Text('Please scan or enter a License ID and Full Name')),
                       );
                       return;
                     }
 
+                    setState(() {
+                      _isProcessing = true;
+                    });
+                    
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('License registered successfully for $name ($id)!'),
-                        backgroundColor: const Color(0xFF2EAA1B),
+                      const SnackBar(
+                        content: Text('Registering to Database...'),
+                        duration: Duration(seconds: 1),
                       ),
                     );
+
+                    try {
+                      final result = await ApiService.registerDriver(
+                        licenseId: id,
+                        fullName: name,
+                        dob: dob.isNotEmpty ? dob : '2000-01-01',
+                        expiryDate: expiry.isNotEmpty ? expiry : '2030-01-01',
+                        licenseType: type,
+                      );
+
+                      if (!mounted) return;
+                      setState(() {
+                        _isProcessing = false;
+                        _isRegisteredController.text = result.alreadyRegistered ? 'Duplicate' : 'Yes';
+                        _activeStatusController.text = result.licenseStatus ?? 'Active';
+                      });
+
+                      if (result.alreadyRegistered) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'License already registered ($id) - Status: ${result.licenseStatus ?? "Active"}',
+                            ),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              result.message.isNotEmpty
+                                  ? result.message
+                                  : 'License registered successfully for $name ($id)!',
+                            ),
+                            backgroundColor: const Color(0xFF2EAA1B),
+                          ),
+                        );
+                        _resetForm();
+                      }
+                    } on ApiException catch (e) {
+                      if (!mounted) return;
+                      setState(() {
+                        _isProcessing = false;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(e.message),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    } catch (_) {
+                      if (!mounted) return;
+                      setState(() {
+                        _isProcessing = false;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Registration failed. Check connection or data.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   },
-                  child: const Text('Register', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  child: _isProcessing 
+                      ? const SizedBox(
+                          height: 24, 
+                          width: 24, 
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)
+                        )
+                      : const Text('Register', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(height: 20),

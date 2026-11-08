@@ -1,47 +1,63 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using DAFTech.DriverLicenseSystem.Api.Data;
-using DAFTech.DriverLicenseSystem.Api.Models.Entities;
+using DAFTech.DriverLicenseSystem.Api.Helpers;
+using DAFTech.DriverLicenseSystem.Api.Models.Dtos;
+using DAFTech.DriverLicenseSystem.Api.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace DAFTech.DriverLicenseSystem.Api.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/drivers")]
+    [Authorize]
     public class DriverController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly DriverService _driverService;
 
-        public DriverController(ApplicationDbContext context)
+        public DriverController(DriverService driverService)
         {
-            _context = context;
+            _driverService = driverService;
         }
 
-       
         [HttpPost("register")]
-        public async Task<IActionResult> RegisterDriver([FromBody] Driver driver)
+        public async Task<IActionResult> RegisterDriver([FromBody] RegisterDriverRequest request)
         {
-            try
+            var userId = User.GetUserId();
+            if (userId == null)
             {
-                driver.CreatedDate = DateTime.UtcNow;
-
-                _context.Drivers.Add(driver);
-                await _context.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    message = "License successfully registered!",
-                    driverId = driver.DriverId
-                });
+                return Unauthorized(new { message = "Your session is not valid. Please log in again." });
             }
-            catch (Exception ex)
+
+            var result = await _driverService.RegisterAsync(request, userId.Value);
+
+            switch (result.Outcome)
             {
-                return StatusCode(500, new { message = "Error saving to database", details = ex.Message });
+                case RegisterOutcome.Created:
+                    return StatusCode(201, new RegisterDriverResponse
+                    {
+                        Message = "License successfully registered!",
+                        Driver = DriverResponse.From(result.Driver!)
+                    });
+
+                case RegisterOutcome.Duplicate:
+                    return Conflict(new RegisterDriverResponse
+                    {
+                        Message = "License already registered",
+                        Driver = DriverResponse.From(result.Driver!)
+                    });
+
+                default:
+                    return BadRequest(new
+                    {
+                        message = string.Join(" ", result.Errors),
+                        errors = result.Errors
+                    });
             }
         }
+
         [HttpGet]
-        public IActionResult GetAllDrivers()
+        public async Task<IActionResult> GetAllDrivers()
         {
-            var drivers = _context.Drivers.ToList();
-            return Ok(drivers);
+            return Ok(await _driverService.GetAllAsync());
         }
     }
 }

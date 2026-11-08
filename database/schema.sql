@@ -19,7 +19,7 @@ CREATE TABLE Drivers (
     LicenseId NVARCHAR(50) NOT NULL UNIQUE,
     FullName NVARCHAR(100) NOT NULL,
     DateOfBirth DATE NOT NULL,
-    LicenseType NVARCHAR(20) NOT NULL, -- Grade
+    LicenseType NVARCHAR(20) NOT NULL,
     ExpiryDate DATE NOT NULL,
     QrRawData NVARCHAR(MAX) NOT NULL,
     OcrRawText NVARCHAR(MAX) NOT NULL,
@@ -35,3 +35,10 @@ CREATE TABLE VerificationLogs (
     CheckedBy INT FOREIGN KEY REFERENCES Users(UserId),
     CheckedDate DATETIME DEFAULT GETDATE()
 );
+
+IF NOT EXISTS (SELECT 1 FROM Users WHERE Username = 'officer1')
+BEGIN
+    INSERT INTO Users (Username, PasswordHash, Status)
+    VALUES ('officer1', '$2a$11$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'Active');
+END;
+GO

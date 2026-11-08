@@ -1,36 +1,41 @@
 class VerificationLog {
   final String id;
-  final String name;
   final String licenseId;
-  final String time;
+  final String? fullName;
   final String status;
+  final String? checkedBy;
+  final DateTime? checkedDate;
 
   const VerificationLog({
     required this.id,
-    required this.name,
     required this.licenseId,
-    required this.time,
+    this.fullName,
     required this.status,
+    this.checkedBy,
+    this.checkedDate,
   });
 
   factory VerificationLog.fromJson(Map<String, dynamic> json) {
     return VerificationLog(
-      id: json['id']?.toString() ?? '',
-      name: json['name'] ?? '',
-      licenseId: json['licenseId'] ?? '',
-      time: json['time'] ?? '',
-      status: json['status'] ?? 'Valid',
+      id: json['logId']?.toString() ?? json['id']?.toString() ?? '',
+      licenseId: json['licenseId']?.toString() ?? '',
+      fullName: json['fullName']?.toString(),
+      status: json['verificationStatus']?.toString() ??
+          json['status']?.toString() ??
+          'Unknown',
+      checkedBy: json['checkedBy']?.toString(),
+      checkedDate: DateTime.tryParse(json['checkedDate']?.toString() ?? ''),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'name': name,
+      'logId': id,
       'licenseId': licenseId,
-      'time': time,
-      'status': status,
+      'fullName': fullName,
+      'verificationStatus': status,
+      'checkedBy': checkedBy,
+      'checkedDate': checkedDate?.toIso8601String(),
     };
   }
 }
-

@@ -1,36 +1,31 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
+import '../models/verification_log_model.dart';
+import '../services/api_service.dart';
+import '../utils/date_format.dart';
 
-class VerificationLogsScreen extends StatelessWidget {
+class VerificationLogsScreen extends StatefulWidget {
   const VerificationLogsScreen({super.key});
 
-  final List<Map<String, String>> _mockLogs = const [
-    {
-      'name': 'Abebe Kebede',
-      'id': 'DL-982374',
-      'time': '29/2/19, 10:45 AM',
-      'status': 'Valid',
-    },
-    {
-      'name': 'Sara Tadesse',
-      'id': 'DL-102938',
-      'time': '29/2/19, 09:12 AM',
-      'status': 'Expired',
-    },
-    {
-      'name': 'Dawit Alemu',
-      'id': 'DL-564738',
-      'time': '30/2/19, 04:30 PM',
-      'status': 'Suspended',
-    },
-    {
-      'name': 'Meron Hailu',
-      'id': 'DL-443322',
-      'time': '30/2/19, 02:15 PM',
-      'status': 'Valid',
-    },
-  ];
+  @override
+  State<VerificationLogsScreen> createState() => _VerificationLogsScreenState();
+}
+
+class _VerificationLogsScreenState extends State<VerificationLogsScreen> {
+  late Future<List<VerificationLog>> _logsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _logsFuture = ApiService.fetchLogs();
+  }
+
+  Future<void> _reload() async {
+    final future = ApiService.fetchLogs();
+    setState(() => _logsFuture = future);
+    await future;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,39 +34,90 @@ class VerificationLogsScreen extends StatelessWidget {
         title: const Text('Scan Logs'),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: _reload,
+          ),
+        ],
       ),
       body: SafeArea(
-        child: _mockLogs.isEmpty
-            ? const Center(child: Text('No scan logs available.'))
-            : ListView.builder(
+        child: FutureBuilder<List<VerificationLog>>(
+          future: _logsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppTheme.accentTeal),
+              );
+            }
+
+            if (snapshot.hasError) {
+              final message = snapshot.error is ApiException
+                  ? (snapshot.error as ApiException).message
+                  : 'Could not load the scan logs.';
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.wifi_off, color: Colors.white38, size: 40),
+                      const SizedBox(height: 12),
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _reload,
+                        child: const Text('Try Again'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final logs = snapshot.data ?? const [];
+            if (logs.isEmpty) {
+              return const Center(child: Text('No scan logs available.'));
+            }
+
+            return RefreshIndicator(
+              onRefresh: _reload,
+              child: ListView.builder(
                 padding: const EdgeInsets.all(24.0),
-                itemCount: _mockLogs.length,
+                itemCount: logs.length,
                 itemBuilder: (context, index) {
-                  final log = _mockLogs[index];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 16.0),
-                    child: _buildLogCard(context, log),
+                    child: _buildLogCard(logs[index]),
                   );
                 },
               ),
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildLogCard(BuildContext context, Map<String, dynamic> log) {
+  Widget _buildLogCard(VerificationLog log) {
     Color statusColor;
     IconData statusIcon;
 
-    switch (log['status']) {
-      case 'Valid':
+    switch (log.status.toLowerCase()) {
+      case 'active':
         statusColor = Colors.greenAccent;
         statusIcon = Icons.check_circle_outline;
         break;
-      case 'Expired':
+      case 'expired':
         statusColor = Colors.orangeAccent;
         statusIcon = Icons.access_time;
         break;
-      case 'Suspended':
+      case 'fake':
         statusColor = Colors.redAccent;
         statusIcon = Icons.cancel_outlined;
         break;
@@ -107,7 +153,7 @@ class VerificationLogsScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      log['name'],
+                      log.fullName?.isNotEmpty == true ? log.fullName! : 'Unknown driver',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -115,12 +161,22 @@ class VerificationLogsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'ID: ${log['id']}',
+                      'ID: ${log.licenseId}',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.7),
                         fontSize: 14,
                       ),
                     ),
+                    if (log.checkedBy != null && log.checkedBy!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Checked by: ${log.checkedBy}',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -128,7 +184,7 @@ class VerificationLogsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    log['status'],
+                    log.status,
                     style: TextStyle(
                       color: statusColor,
                       fontWeight: FontWeight.bold,
@@ -136,7 +192,7 @@ class VerificationLogsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    log['time'],
+                    formatDateTime(log.checkedDate),
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.5),
                       fontSize: 12,

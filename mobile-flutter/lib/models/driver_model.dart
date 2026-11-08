@@ -6,7 +6,7 @@ class Driver {
   final String expiryDate;
   final String? createdDate;
   final String licenseType;
-  final String status; // "Valid", "Expired", "Suspended"
+  final String status;
   final String? registeredBy;
 
   const Driver({

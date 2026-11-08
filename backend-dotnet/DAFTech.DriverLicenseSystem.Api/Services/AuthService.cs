@@ -1,4 +1,5 @@
-﻿using DAFTech.DriverLicenseSystem.Api.Data;
+using DAFTech.DriverLicenseSystem.Api.Data;
+using DAFTech.DriverLicenseSystem.Api.Models.Dtos;
 using DAFTech.DriverLicenseSystem.Api.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -34,16 +35,44 @@ namespace DAFTech.DriverLicenseSystem.Api.Services
             return user;
         }
 
-        public async Task<string?> LoginUser(string username, string rawPassword)
+        public async Task<LoginResponse?> LoginUser(string username, string rawPassword)
         {
-            var user = await _context.Users.SingleOrDefaultAsync(u => u.Username == username);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower());
 
-            if (user == null || !BCrypt.Net.BCrypt.Verify(rawPassword, user.PasswordHash)) return null;
+            if (user == null)
+            {
+                Console.WriteLine($"[AUTH FAIL] User '{username}' not found in database.");
+                return null;
+            }
 
-            return GenerateJwtToken(user);
+            if (!string.Equals(user.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine($"[AUTH FAIL] User '{username}' account is '{user.Status}', not Active.");
+                return null;
+            }
+
+            if (!BCrypt.Net.BCrypt.Verify(rawPassword, user.PasswordHash))
+            {
+                Console.WriteLine($"[AUTH FAIL] Password does not match for user '{username}'.");
+                return null;
+            }
+
+            Console.WriteLine($"[AUTH SUCCESS] User '{user.Username}' authenticated successfully.");
+
+            var now = DateTime.UtcNow;
+            var expires = now.AddHours(2);
+
+            return new LoginResponse
+            {
+                Token = GenerateJwtToken(user, expires),
+                UserId = user.UserId,
+                Username = user.Username,
+                LoginDate = now,
+                ExpiresAt = expires
+            };
         }
 
-        private string GenerateJwtToken(User user)
+        private string GenerateJwtToken(User user, DateTime expires)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
@@ -52,6 +81,7 @@ namespace DAFTech.DriverLicenseSystem.Api.Services
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Username),
                 new Claim("UserId", user.UserId.ToString()),
+                new Claim("Username", user.Username),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
@@ -59,7 +89,7 @@ namespace DAFTech.DriverLicenseSystem.Api.Services
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(2),
+                expires: expires,
                 signingCredentials: credentials);
 
             return new JwtSecurityTokenHandler().WriteToken(token);

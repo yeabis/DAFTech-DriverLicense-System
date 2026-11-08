@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
+import '../services/auth_service.dart';
 import 'camera_registration_screen.dart';
 import 'verification_logs_screen.dart';
 import 'verification_screen.dart';
@@ -83,7 +84,9 @@ class DashboardScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
+                    await AuthService.logout();
+                    if (!context.mounted) return;
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
