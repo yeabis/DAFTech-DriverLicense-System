@@ -17,17 +17,14 @@ class VerificationScreen extends StatefulWidget {
   State<VerificationScreen> createState() => _VerificationScreenState();
 }
 
-class _VerificationScreenState extends State<VerificationScreen>
-    with SingleTickerProviderStateMixin {
+class _VerificationScreenState extends State<VerificationScreen> {
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _licenseIdController = TextEditingController();
 
   final TesseractOcrService _ocrService = TesseractOcrService();
 
-  late AnimationController _laserAnimController;
-  late Animation<double> _laserAnimation;
-
-  bool _isCameraActive = true;
+  File? _capturedImage;
+  bool _useLiveScanner = true;
   bool _isVerifying = false;
   bool _isScanning = false;
   String? _lastScannedRaw;
@@ -37,21 +34,7 @@ class _VerificationScreenState extends State<VerificationScreen>
   String? _scannedExpiryDate;
 
   @override
-  void initState() {
-    super.initState();
-    _laserAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat(reverse: true);
-
-    _laserAnimation = Tween<double>(begin: 0.15, end: 0.85).animate(
-      CurvedAnimation(parent: _laserAnimController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
   void dispose() {
-    _laserAnimController.dispose();
     _ocrService.dispose();
     _fullNameController.dispose();
     _licenseIdController.dispose();
@@ -64,9 +47,13 @@ class _VerificationScreenState extends State<VerificationScreen>
       final pickedFile = await picker.pickImage(source: source, imageQuality: 95);
       if (pickedFile == null) return;
 
-      setState(() => _isScanning = true);
+      setState(() {
+        _capturedImage = File(pickedFile.path);
+        _useLiveScanner = false;
+        _isScanning = true;
+      });
 
-      final parsed = await _ocrService.scanFrontLicense(File(pickedFile.path));
+      final parsed = await _ocrService.scanFrontLicense(_capturedImage!);
 
       setState(() {
         if (parsed.fullName != null) _fullNameController.text = parsed.fullName!;
@@ -77,16 +64,26 @@ class _VerificationScreenState extends State<VerificationScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('License photo scanned. Review details and tap Verify.'),
-            backgroundColor: Color(0xFF2EAA1B),
+          SnackBar(
+            content: Text(
+              parsed.licenseId != null
+                  ? 'Front card scanned successfully! Details extracted.'
+                  : 'Scanned, but the ID number wasn\'t readable. Please check/enter it manually.',
+            ),
+            backgroundColor:
+                parsed.licenseId != null ? const Color(0xFF2EAA1B) : Colors.orangeAccent,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
+      debugPrint('[FrontScan] OCR error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Scan notice: $e. You can enter details manually.')),
+          SnackBar(
+            content: Text('Scan notice: $e. You can fill or edit fields manually.'),
+            backgroundColor: Colors.orangeAccent,
+          ),
         );
       }
     } finally {
@@ -109,7 +106,7 @@ class _VerificationScreenState extends State<VerificationScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Scan License Photo',
+                  'Scan Front License',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
@@ -123,12 +120,24 @@ class _VerificationScreenState extends State<VerificationScreen>
                 ),
                 ListTile(
                   leading: const Icon(Icons.photo_library, color: AppTheme.accentTeal),
-                  title: const Text('Choose Photo from Gallery'),
+                  title: const Text('Choose Front Photo from Gallery'),
                   onTap: () {
                     Navigator.pop(context);
                     _scanFrontPhoto(ImageSource.gallery);
                   },
                 ),
+                if (_capturedImage != null)
+                  ListTile(
+                    leading: const Icon(Icons.qr_code_scanner, color: Colors.amber),
+                    title: const Text('Switch back to Live Viewport'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      setState(() {
+                        _capturedImage = null;
+                        _useLiveScanner = true;
+                      });
+                    },
+                  ),
               ],
             ),
           ),
@@ -138,7 +147,7 @@ class _VerificationScreenState extends State<VerificationScreen>
   }
 
   void _onBarcodeDetected(BarcodeCapture capture) {
-    if (!_isCameraActive || _isVerifying) return;
+    if (!_useLiveScanner || _isVerifying) return;
     final barcodes = capture.barcodes;
     if (barcodes.isEmpty) return;
 
@@ -243,15 +252,9 @@ class _VerificationScreenState extends State<VerificationScreen>
                 height: 52,
                 child: ElevatedButton.icon(
                   onPressed: _isScanning ? null : _showScanOptions,
-                  icon: _isScanning
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.document_scanner_outlined, size: 22),
+                  icon: const Icon(Icons.camera_alt_outlined, size: 22),
                   label: Text(
-                    _isScanning ? 'Scanning...' : 'Scan License Photo',
+                    _capturedImage != null ? 'Retake / Rescan Front' : 'Scan Front License',
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -419,155 +422,44 @@ class _VerificationScreenState extends State<VerificationScreen>
 
   Widget _buildScannerViewport() {
     return Container(
-      height: 280,
+      height: 240,
       decoration: BoxDecoration(
-        color: const Color(0xFF4A4A4A),
-        borderRadius: BorderRadius.circular(24),
+        color: const Color(0xFF383838),
+        border: Border.all(
+          color: _capturedImage != null ? AppTheme.accentTeal : const Color(0xFF168078),
+          width: 2,
+        ),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(14),
         child: Stack(
-          alignment: Alignment.center,
+          fit: StackFit.expand,
           children: [
-            if (_isCameraActive)
-              Positioned.fill(
-                child: CustomScannerWidget(
-                  onDetect: _onBarcodeDetected,
-                ),
-              ),
+            if (_capturedImage != null)
+              Image.file(_capturedImage!, fit: BoxFit.cover)
+            else
+              CustomScannerWidget(onDetect: _onBarcodeDetected),
 
-            Center(
-              child: Container(
-                width: 250,
-                height: 155,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.35),
-                  border: Border.all(color: Colors.white60, width: 1.5),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 65,
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white38, width: 1),
-                      ),
-                      child: const Icon(
-                        Icons.person,
-                        color: Colors.white54,
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: const [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'License Type (Gerad)',
-                                style: TextStyle(color: Colors.white70, fontSize: 8),
-                              ),
-                              Text(
-                                'License ID number',
-                                style: TextStyle(color: Colors.white70, fontSize: 8),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            'Full Name',
-                            style: TextStyle(color: Colors.white70, fontSize: 8),
-                          ),
-                          Text(
-                            'Date of birth',
-                            style: TextStyle(color: Colors.white70, fontSize: 8),
-                          ),
-                          Text(
-                            'Created date',
-                            style: TextStyle(color: Colors.white70, fontSize: 8),
-                          ),
-                          Text(
-                            'Expiry date',
-                            style: TextStyle(color: Colors.white70, fontSize: 8),
-                          ),
-                          Align(
-                            alignment: Alignment.bottomRight,
-                            child: Text(
-                              'Registered by user',
-                              style: TextStyle(color: Colors.white54, fontSize: 7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            if (_isVerifying)
+            if (_isScanning || _isVerifying)
               Container(
                 color: Colors.black54,
-                child: const Center(
-                  child: CircularProgressIndicator(color: AppTheme.accentTeal),
-                ),
-              )
-            else
-              AnimatedBuilder(
-                animation: _laserAnimation,
-                builder: (context, child) {
-                  return Positioned(
-                    top: 280 * _laserAnimation.value,
-                    left: 20,
-                    right: 20,
-                    child: Container(
-                      height: 3,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1DD3D3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF1DD3D3).withOpacity(0.8),
-                            blurRadius: 10,
-                            spreadRadius: 2,
-                          ),
-                        ],
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const CircularProgressIndicator(color: AppTheme.accentTeal),
+                      const SizedBox(height: 12),
+                      Text(
+                        _isScanning
+                            ? 'Preprocessing & running Front OCR...'
+                            : 'Verifying...',
+                        style: const TextStyle(color: Colors.white70, fontSize: 13),
                       ),
-                    ),
-                  );
-                },
-              ),
-
-            Positioned(
-              top: 10,
-              right: 10,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black45,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    _isCameraActive ? Icons.camera_alt : Icons.camera_alt_outlined,
-                    color: _isCameraActive ? AppTheme.accentTeal : Colors.white70,
-                    size: 20,
+                    ],
                   ),
-                  tooltip: 'Toggle Camera',
-                  onPressed: () {
-                    setState(() {
-                      _isCameraActive = !_isCameraActive;
-                    });
-                  },
                 ),
               ),
-            ),
           ],
         ),
       ),

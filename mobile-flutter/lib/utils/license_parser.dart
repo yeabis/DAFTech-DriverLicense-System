@@ -131,7 +131,7 @@ class LicenseParser {
   );
 
   static final RegExp _idRegex = RegExp(
-    r'\b(DL[- ]?\d{5,8}|ET[- ]?\d{5,8}|[A-Z]{2,3}[- ]?\d{5,8})\b',
+    r'\b([A-Z]{1,5}[- ]?\d{3,12}|\d{5,12})\b',
     caseSensitive: false,
   );
 
@@ -231,7 +231,7 @@ class LicenseParser {
         continue;
       }
 
-      if (licenseId == null) {
+      if (licenseId == null && !_dateRegex.hasMatch(line)) {
         final m = _idRegex.firstMatch(line);
         if (m != null) licenseId = _cleanId(m.group(0));
       }
@@ -302,17 +302,39 @@ class LicenseParser {
 
   static ParsedLicenseData parseQr(String rawData) {
     final clean = rawData.trim();
-    if (clean.contains('|')) {
-      final p = clean.split('|');
+
+    if (clean.startsWith('{') && clean.endsWith('}')) {
+      String? extract(String key) {
+        final regex = RegExp('"$key"\\s*:\\s*"([^"]+)"', caseSensitive: false);
+        return regex.firstMatch(clean)?.group(1);
+      }
+
       return ParsedLicenseData(
-        licenseId: p.isNotEmpty ? p[0].trim() : null,
-        fullName: p.length > 1 ? p[1].trim() : null,
-        dob: p.length > 2 ? p[2].trim() : null,
-        expiryDate: p.length > 3 ? p[3].trim() : null,
-        licenseType: p.length > 4 ? p[4].trim() : 'Public 1',
+        licenseId: extract('licenseId') ?? extract('id') ?? extract('dlNo'),
+        fullName: extract('fullName') ?? extract('name'),
+        dob: extract('dob'),
+        expiryDate: extract('expiryDate') ?? extract('expiry'),
+        createdDate: extract('createdDate'),
+        licenseType: extract('licenseType') ?? extract('grade') ?? 'Public 1',
       );
     }
-    return ParsedLicenseData(licenseId: clean, licenseType: 'Public 1');
+
+    if (clean.contains('|')) {
+      final parts = clean.split('|');
+      return ParsedLicenseData(
+        licenseId: parts.isNotEmpty ? parts[0].trim() : null,
+        fullName: parts.length > 1 ? parts[1].trim() : null,
+        dob: parts.length > 2 ? parts[2].trim() : null,
+        expiryDate: parts.length > 3 ? parts[3].trim() : null,
+        licenseType: parts.length > 4 ? parts[4].trim() : 'Public 1',
+      );
+    }
+
+    return ParsedLicenseData(
+      licenseId: clean,
+      fullName: null,
+      licenseType: 'Public 1',
+    );
   }
 
   static bool verifyConsistency(ParsedLicenseData front, ParsedLicenseData back) {
@@ -458,9 +480,9 @@ class LicenseParser {
         .replaceAll(RegExp(r'[^A-Za-z0-9\-/\s]'), '')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
-    if (s.length < 4 || _dateRegex.hasMatch(s)) return null;
+    if (s.length < 3 || _dateRegex.hasMatch(s)) return null;
 
-    final m = RegExp(r'^([A-Za-z]{0,3})([-\s]?)([0-9OoIlSB]{4,10})$')
+    final m = RegExp(r'^([A-Za-z]{0,5})([-\s]?)([0-9OoIlSB]{3,12})$')
         .firstMatch(s);
     if (m != null) {
       return '${m.group(1)!.toUpperCase()}${m.group(2)}${_fixDigits(m.group(3)!)}';
