@@ -10,6 +10,7 @@ import '../utils/date_format.dart';
 import '../utils/license_parser.dart';
 import '../widgets/custom_scanner_widget.dart';
 
+
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
 
@@ -162,13 +163,16 @@ class _VerificationScreenState extends State<VerificationScreen> {
     setState(() {
       _licenseIdController.text = licenseId;
       if (parsed.fullName != null) _fullNameController.text = parsed.fullName!;
+      _scannedDob = parsed.dob;
+      _scannedExpiryDate = parsed.expiryDate;
     });
 
-    _verify(
-      licenseId: licenseId,
-      fullName: parsed.fullName,
-      dob: parsed.dob,
-      expiryDate: parsed.expiryDate,
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('QR code detected. Review details and tap Verify License.'),
+        backgroundColor: AppTheme.accentTeal,
+        duration: Duration(seconds: 2),
+      ),
     );
   }
 
@@ -176,6 +180,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final licenseId = _licenseIdController.text.trim();
     if (licenseId.isEmpty) {
       setState(() => _errorMessage = 'Please enter a License ID Number');
+      return;
+    } else if (licenseId.length < 3) {
+      setState(() => _errorMessage = 'License ID must be at least 3 characters');
       return;
     }
     await _verify(

@@ -121,6 +121,41 @@ class LicenseParser {
     'CLASS',
     'RESTRICTIONS',
     'ENDORSEMENTS',
+    'no',
+    'NO'
+  };
+
+  static const Set<String> _amharicStopWords = {
+    'ስም',
+    'ሙሉ',
+    'ቀን',
+    'የትውልድ',
+    'የልደት',
+    'የሚያበቃበት',
+    'የማብቂያ',
+    'ፍቃድ',
+    'መንጃ',
+    'የመንጃ',
+    'ቁጥር',
+    'ደረጃ',
+    'ገረድ',
+    'የተሰጠበት',
+    'የተመዘገበበት',
+    'ፊርማ',
+    'አድራሻ',
+  };
+
+  static const Set<String> _ethiopicIgnoredHeaders = {
+    'የኢትዮጵያ',
+    'ፌዴራላዊ',
+    'ዲሞክራሲያዊ',
+    'ሪፐብሊክ',
+    'መንግስት',
+    'ትራንስፖርት',
+    'ባለስልጣን',
+    'መንጃ',
+    'ፍቃድ',
+    'መታወቂያ',
   };
 
   static final RegExp _dateRegex =
@@ -142,15 +177,27 @@ class LicenseParser {
           caseSensitive: false),
     ),
     MapEntry(
+      _Field.name,
+      RegExp(r'^(?:የአሽከርካሪው\s*ስም|ሙሉ\s*ስም|ስም)[\s:.\-]*(.*)$'),
+    ),
+    MapEntry(
       _Field.id,
       RegExp(
           r'^(?:License\s*ID(?:\s*Number)?|Licen[sc]e\s*(?:No|Number)|ID\s*(?:Number|No)|DL\s*(?:No|Number)|Document\s*No)\b[\s:.\-#]*(.*)$',
           caseSensitive: false),
     ),
     MapEntry(
+      _Field.id,
+      RegExp(r'^(?:የመንጃ\s*ፍቃድ\s*ቁጥር|የፍቃድ\s*ቁጥር)[\s:.\-#]*(.*)$'),
+    ),
+    MapEntry(
       _Field.dob,
       RegExp(r'^(?:Date\s*of\s*Birth|Birth\s*Date|DOB)\b[\s:.\-]*(.*)$',
           caseSensitive: false),
+    ),
+    MapEntry(
+      _Field.dob,
+      RegExp(r'^(?:የትውልድ\s*ቀን|የልደት\s*ቀን)[\s:.\-]*(.*)$'),
     ),
     MapEntry(
       _Field.expiry,
@@ -159,9 +206,17 @@ class LicenseParser {
           caseSensitive: false),
     ),
     MapEntry(
+      _Field.expiry,
+      RegExp(r'^(?:የሚያበቃበት\s*ቀን|የማብቂያ\s*ቀን)[\s:.\-]*(.*)$'),
+    ),
+    MapEntry(
       _Field.registeredBy,
       RegExp(r'^(?:Registered\s*by(?:\s*user)?|Issued\s*by|Officer)\b[\s:.\-]*(.*)$',
           caseSensitive: false),
+    ),
+    MapEntry(
+      _Field.registeredBy,
+      RegExp(r'^(?:የተመዘገበው\s*በ|በ[\s:.\-]*ባለስልጣን)[\s:.\-]*(.*)$'),
     ),
     MapEntry(
       _Field.created,
@@ -170,10 +225,18 @@ class LicenseParser {
           caseSensitive: false),
     ),
     MapEntry(
+      _Field.created,
+      RegExp(r'^(?:የተሰጠበት\s*ቀን|የተመዘገበበት\s*ቀን)[\s:.\-]*(.*)$'),
+    ),
+    MapEntry(
       _Field.type,
       RegExp(
           r'^(?:Licen[sc]e\s*Type|Licen[sc]e\s*Grade|Category|Grade|Gerad)\b[\s:.\-]*(.*)$',
           caseSensitive: false),
+    ),
+    MapEntry(
+      _Field.type,
+      RegExp(r'^(?:የፍቃድ\s*ደረጃ|ደረጃ|ገረድ)[\s:.\-]*(.*)$'),
     ),
   ];
 
@@ -295,7 +358,7 @@ class LicenseParser {
       dob: dob,
       expiryDate: expiryDate,
       createdDate: createdDate,
-      licenseType: licenseType ?? 'Public 1',
+      licenseType: licenseType ?? '',
       registeredBy: registeredBy ?? 'Officer 1',
     );
   }
@@ -311,11 +374,11 @@ class LicenseParser {
 
       return ParsedLicenseData(
         licenseId: extract('licenseId') ?? extract('id') ?? extract('dlNo'),
-        fullName: extract('fullName') ?? extract('name'),
-        dob: extract('dob'),
-        expiryDate: extract('expiryDate') ?? extract('expiry'),
+        fullName: extract('fullName') ?? extract('name') ?? extract('ስም'),
+        dob: extract('dob') ?? extract('የትውልድቀን'),
+        expiryDate: extract('expiryDate') ?? extract('expiry') ?? extract('የሚያበቃበትቀን'),
         createdDate: extract('createdDate'),
-        licenseType: extract('licenseType') ?? extract('grade') ?? 'Public 1',
+        licenseType: extract('licenseType') ?? extract('grade') ?? '',
       );
     }
 
@@ -326,22 +389,28 @@ class LicenseParser {
         fullName: parts.length > 1 ? parts[1].trim() : null,
         dob: parts.length > 2 ? parts[2].trim() : null,
         expiryDate: parts.length > 3 ? parts[3].trim() : null,
-        licenseType: parts.length > 4 ? parts[4].trim() : 'Public 1',
+        licenseType: parts.length > 4 ? parts[4].trim() : '',
       );
+    }
+
+    if (clean.contains('\n') || _isLabelLine(clean)) {
+      final lines = clean.split(RegExp(r'\r?\n')).map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+      final parsed = parseOcrLines(lines);
+      if (parsed.licenseId != null || parsed.fullName != null) return parsed;
     }
 
     return ParsedLicenseData(
       licenseId: clean,
       fullName: null,
-      licenseType: 'Public 1',
+      licenseType: '',
     );
   }
 
-  static bool verifyConsistency(ParsedLicenseData front, ParsedLicenseData back) {
-    if (front.licenseId != null && back.licenseId != null) {
-      final cOcr = front.licenseId!.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
-      final cQr = back.licenseId!.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
-      return cOcr == cQr || cOcr.contains(cQr) || cQr.contains(cOcr);
+  static bool verifyConsistency(ParsedLicenseData frontOcr, ParsedLicenseData backQr) {
+    if (frontOcr.licenseId != null && backQr.licenseId != null) {
+      final cleanOcr = frontOcr.licenseId!.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
+      final cleanQr = backQr.licenseId!.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
+      return cleanOcr == cleanQr || cleanOcr.contains(cleanQr) || cleanQr.contains(cleanOcr);
     }
     return true;
   }
@@ -379,13 +448,24 @@ class LicenseParser {
         .split(RegExp(r'[^A-Z]+'))
         .where((t) => t.isNotEmpty)
         .toList();
-    if (tokens.isEmpty) return false;
 
-    final matches = tokens.where(_ignoredHeaders.contains).length;
+    final ethiopicTokens = line
+        .split(RegExp('[^$_ethiopic]+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+
+    if (tokens.isEmpty && ethiopicTokens.isEmpty) return false;
+
+    final matches = tokens.where(_ignoredHeaders.contains).length +
+        ethiopicTokens.where(_ethiopicIgnoredHeaders.contains).length;
     final hasCore = tokens.any(
-      (t) => t == 'LICENSE' || t == 'LICENCE' || t == 'REPUBLIC',
-    );
-    return matches >= 2 || (matches >= 1 && hasCore && tokens.length <= 3);
+          (t) => t == 'LICENSE' || t == 'LICENCE' || t == 'REPUBLIC',
+        ) ||
+        ethiopicTokens.any(
+          (t) => t == 'ፍቃድ' || t == 'ሪፐብሊክ' || t == 'መንጃ',
+        );
+    final totalTokens = tokens.length + ethiopicTokens.length;
+    return matches >= 2 || (matches >= 1 && hasCore && totalTokens <= 3);
   }
 
   static String _fixDigits(String s) {
@@ -424,15 +504,24 @@ class LicenseParser {
     return null;
   }
 
+  static const String _ethiopic = 'ሀ-፿';
+
   static String? _cleanName(String? raw) {
     if (raw == null) return null;
 
-    final cleaned = raw.replaceAll(RegExp(r"[^A-Za-z0-9\s'.\-]"), ' ');
+    final cleaned =
+        raw.replaceAll(RegExp("[^A-Za-z0-9$_ethiopic\\s'.\\-]"), ' ');
     final tokens = <String>[];
 
     for (final rawToken in cleaned.split(RegExp(r'\s+'))) {
       var token = rawToken.replaceAll(RegExp(r"^[.\-']+|[\-']+$"), '');
       if (token.isEmpty) continue;
+
+      if (RegExp('[$_ethiopic]').hasMatch(token)) {
+        if (_amharicStopWords.contains(token)) continue;
+        tokens.add(token);
+        continue;
+      }
 
       final letters = RegExp(r'[A-Za-z]').allMatches(token).length;
       final digits = RegExp(r'[0-9]').allMatches(token).length;
@@ -457,13 +546,16 @@ class LicenseParser {
 
     final words = name.split(' ');
     final realWords = words
-        .where((w) => RegExp(r'[A-Za-z]').allMatches(w).length >= 2)
+        .where((w) =>
+            RegExp(r'[A-Za-z]').allMatches(w).length >= 2 ||
+            RegExp('[$_ethiopic]').hasMatch(w))
         .length;
     if (realWords < minWords) return false;
 
     for (final w in words) {
+      if (_amharicStopWords.contains(w)) return false;
       final key = w.toUpperCase().replaceAll(RegExp(r'[^A-Z]'), '');
-      if (_nameStopWords.contains(key)) return false;
+      if (key.isNotEmpty && _nameStopWords.contains(key)) return false;
     }
     return true;
   }
@@ -535,5 +627,6 @@ class LicenseParser {
 class _DateEntry {
   final String raw;
   final DateTime? parsed;
+
   _DateEntry(this.raw, this.parsed);
 }
